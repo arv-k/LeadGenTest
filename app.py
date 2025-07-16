@@ -18,18 +18,15 @@ KEYWORDS = ["ticket", "rsvp", "eventbrite", "sold out", "guest list", "linktree"
 # --- Functions
 @st.cache_data(show_spinner=False)
 def fetch_orgs(url):
-    resp = requests.get(url)
-    soup = BeautifulSoup(resp.text, "html.parser")
-    entries = soup.find_all("div", class_="group-info")
+    api_url = "https://engage.usc.edu/api/discovery/search/organizations?take=1000"
+    resp = requests.get(api_url)
+    data = resp.json()
     orgs = []
-    for entry in entries:
-        name_tag = entry.find("a", class_="group-name")
-        cat_tag = entry.find("div", class_="group-category")
-        if name_tag:
-            name = name_tag.text.strip()
-            link = "https://engage.usc.edu" + name_tag.get("href")
-            category = cat_tag.text.strip() if cat_tag else "N/A"
-            orgs.append({"Name": name, "Category": category, "Link": link})
+    for item in data.get("value", []):
+        name = item.get("name", "").strip()
+        category = item.get("categoryName", "N/A")
+        link = "https://engage.usc.edu/organization/" + item.get("url", "")
+        orgs.append({"Name": name, "Category": category, "Link": link})
     return orgs
 
 def score_org_page(url):
