@@ -49,10 +49,19 @@ if st.button("Find Leads"):
         orgs = fetch_orgs(input_url)
         for org in orgs:
             org["Score"] = score_org_page(org["Link"])
-        leads = [org for org in orgs if org["Score"] > 0]
-        df = pd.DataFrame(leads).sort_values("Score", ascending=False)
-        st.success(f"Found {len(df)} high-potential orgs!")
-        st.dataframe(df)
-        st.download_button("📥 Download CSV", data=df.to_csv(index=False), file_name="doorlist_leads.csv")
+
+        leads = [org for org in orgs if org.get("Score", 0) > 0]
+
+        if not leads:
+            st.warning("No high-scoring orgs found. Try a different directory URL or check keywords.")
+        else:
+            df = pd.DataFrame(leads)
+            if "Score" not in df.columns:
+                st.error("Score column missing. Something went wrong during parsing.")
+            else:
+                df = df.sort_values("Score", ascending=False)
+                st.success(f"Found {len(df)} high-potential orgs!")
+                st.dataframe(df)
+                st.download_button("📥 Download CSV", data=df.to_csv(index=False), file_name="doorlist_leads.csv")
 else:
     st.info("Paste the URL of a student organization directory (e.g., EngageSC at USC)")
