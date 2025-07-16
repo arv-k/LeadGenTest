@@ -19,15 +19,26 @@ KEYWORDS = ["ticket", "rsvp", "eventbrite", "sold out", "guest list", "linktree"
 @st.cache_data(show_spinner=False)
 def fetch_orgs(url):
     api_url = "https://engage.usc.edu/api/discovery/search/organizations?take=1000"
-    resp = requests.get(api_url)
-    data = resp.json()
-    orgs = []
-    for item in data.get("value", []):
-        name = item.get("name", "").strip()
-        category = item.get("categoryName", "N/A")
-        link = "https://engage.usc.edu/organization/" + item.get("url", "")
-        orgs.append({"Name": name, "Category": category, "Link": link})
-    return orgs
+    try:
+        resp = requests.get(api_url)
+        if resp.status_code != 200:
+            st.error(f"Failed to fetch org data. Status code: {resp.status_code}")
+            return []
+        try:
+            data = resp.json()
+        except ValueError:
+            st.error("Failed to decode JSON from response.")
+            return []
+        orgs = []
+        for item in data.get("value", []):
+            name = item.get("name", "").strip()
+            category = item.get("categoryName", "N/A")
+            link = "https://engage.usc.edu/organization/" + item.get("url", "")
+            orgs.append({"Name": name, "Category": category, "Link": link})
+        return orgs
+    except Exception as e:
+        st.error(f"Error fetching orgs: {e}")
+        return []
 
 def score_org_page(url):
     try:
@@ -44,21 +55,24 @@ input_url = st.text_input("Enter student org directory URL:", value=DEFAULT_URL)
 if st.button("Find Leads"):
     with st.spinner("Scraping orgs and scoring..."):
         orgs = fetch_orgs(input_url)
-        for org in orgs:
-            org["Score"] = score_org_page(org["Link"])
-
-        leads = [org for org in orgs if org.get("Score", 0) > 0]
-
-        if not leads:
-            st.warning("No high-scoring orgs found. Try a different directory URL or check keywords.")
+        if not orgs:
+            st.warning("No organizations found or failed to fetch data.")
         else:
-            df = pd.DataFrame(leads)
-            if "Score" not in df.columns:
-                st.error("Score column missing. Something went wrong during parsing.")
+            for org in orgs:
+                org["Score"] = score_org_page(org["Link"])
+
+            leads = [org for org in orgs if org.get("Score", 0) > 0]
+
+            if not leads:
+                st.warning("No high-scoring orgs found. Try a different directory URL or check keywords.")
             else:
-                df = df.sort_values("Score", ascending=False)
-                st.success(f"Found {len(df)} high-potential orgs!")
-                st.dataframe(df)
-                st.download_button("📥 Download CSV", data=df.to_csv(index=False), file_name="doorlist_leads.csv")
+                df = pd.DataFrame(leads)
+                if "Score" not in df.columns:
+                    st.error("Score column missing. Something went wrong during parsing.")
+                else:
+                    df = df.sort_values("Score", ascending=False)
+                    st.success(f"Found {len(df)} high-potential orgs!")
+                    st.dataframe(df)
+                    st.download_button("📥 Download CSV", data=df.to_csv(index=False), file_name="doorlist_leads.csv")
 else:
     st.info("Paste the URL of a student organization directory (e.g., EngageSC at USC)")
