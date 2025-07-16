@@ -7,19 +7,20 @@ import re
 st.set_page_config(page_title="Campus Lead Gen - Doorlist Fit Finder")
 st.title("🎓 Campus Event Intelligence Tracker")
 st.markdown("""
-This tool scrapes a student organization directory (starting with USC EngageSC)
+This tool scrapes a student organization directory (works best with CampusLabs Engage)
 and finds orgs likely to host ticketed or RSVP-based events — ideal for Doorlist outreach.
 """)
 
 # --- Config
-DEFAULT_URL = "https://engage.usc.edu/home/groups/"
+DEFAULT_URL = "https://msu.campuslabs.com/engage/organizations"
 KEYWORDS = ["ticket", "rsvp", "eventbrite", "sold out", "guest list", "linktree"]
 
 # --- Functions
 @st.cache_data(show_spinner=False)
-def fetch_orgs(url):
-    api_url = "https://engage.usc.edu/api/discovery/search/organizations?take=1000"
+def fetch_orgs(directory_url):
     try:
+        root = directory_url.split('/')[2]  # Extract domain like engage.msu.edu
+        api_url = f"https://{root}/api/discovery/search/organizations?take=1000"
         resp = requests.get(api_url)
         if resp.status_code != 200:
             st.error(f"Failed to fetch org data. Status code: {resp.status_code}")
@@ -33,7 +34,7 @@ def fetch_orgs(url):
         for item in data.get("value", []):
             name = item.get("name", "").strip()
             category = item.get("categoryName", "N/A")
-            link = "https://engage.usc.edu/organization/" + item.get("url", "")
+            link = f"https://{root}/organization/" + item.get("url", "")
             orgs.append({"Name": name, "Category": category, "Link": link})
         return orgs
     except Exception as e:
@@ -50,7 +51,7 @@ def score_org_page(url):
         return 0
 
 # --- User Input
-input_url = st.text_input("Enter student org directory URL:", value=DEFAULT_URL)
+input_url = st.text_input("Enter CampusLabs org directory URL:", value=DEFAULT_URL)
 
 if st.button("Find Leads"):
     with st.spinner("Scraping orgs and scoring..."):
@@ -75,4 +76,4 @@ if st.button("Find Leads"):
                     st.dataframe(df)
                     st.download_button("📥 Download CSV", data=df.to_csv(index=False), file_name="doorlist_leads.csv")
 else:
-    st.info("Paste the URL of a student organization directory (e.g., EngageSC at USC)")
+    st.info("Paste the URL of a CampusLabs organization directory (e.g., https://msu.campuslabs.com/engage/organizations)")
